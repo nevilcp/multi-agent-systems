@@ -1,0 +1,229 @@
+\documentclass[a4paper, 11pt]{article}
+\usepackage{../../latex/mas}
+
+\begin{document}
+\masheader{1}{Date: August 21, 2026}
+
+% Problem 1
+\begin{problem}{1}
+Simulate the following tasks and give your inferences and all the associated codes.
+\begin{enumerate}
+    \item For $N=5$, generate and plot a random undirected graph $\mathcal{G}(\mathcal{V},\mathcal{E})$ using the Erd\H{o}s--R\'enyi model.
+    \begin{enumerate}[(a)]
+        \item Report the adjacency matrix, degree matrix, incidence matrix, and Laplacian matrix.
+        \item Compute and report the eigenvalues of the Laplacian matrix. Report the algebraic connectivity $\lambda_2$ value. Explain the properties of the graph using the computed $\lambda_2$ quantity and mention why it is so important.
+        \item Argue why high connectivity (i.e., each node having more connections) is a double-edged sword for agents in a network.
+    \end{enumerate}
+    \item Assume the number of agents $N=10^3$ and generate a random undirected connected graph (having a spanning tree) $\mathcal{G}(\mathcal{V},\mathcal{E})$ with $N$ agents using the Erd\H{o}s--R\'enyi model and plot it.
+    \begin{enumerate}[(a)]
+        \item Highlight the node(s) with the highest number of neighbours with a bright colour. Compute the mean degree and mean edges of the generated random graph and compare them with the theoretical values to see if they match. Plot the diameter of the graph by colouring the corresponding edges.
+        \item Pick any two nodes at random from the generated graph, compute the shortest path between them using any shortest-path (SP) algorithm such as Dijkstra's algorithm, and plot the shortest path in the graph.
+    \end{enumerate}
+\end{enumerate}
+\end{problem}
+\begin{solution}
+All numbers below are printed by the code at the end of this problem (\texttt{problem1\_er\_graphs.py}); the random number generators are seeded, so a re-run gives the same graphs.
+
+\subpart{Part 1: $N=5$ Erd\H{o}s--R\'enyi graph ($p=0.5$).}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.35\textwidth]{p1_er_n5.png}
+    \caption{The $N=5$ Erd\H{o}s--R\'enyi graph ($p=0.5$, seed $42$).}
+\end{figure}
+
+\noindent\textbf{(a) Graph matrices.} Nodes are labelled $0,\dots,4$ as in the figure and the columns of the incidence matrix are the edges $(0,2),(0,3),(0,4),(2,3),(2,4),(3,4)$.
+\begin{align*}
+    A &= \begin{bmatrix} 0&0&1&1&1\\ 0&0&0&0&0\\ 1&0&0&1&1\\ 1&0&1&0&1\\ 1&0&1&1&0 \end{bmatrix}, &
+    D &= \begin{bmatrix} 3&0&0&0&0\\ 0&0&0&0&0\\ 0&0&3&0&0\\ 0&0&0&3&0\\ 0&0&0&0&3 \end{bmatrix},\\[1ex]
+    \text{Inc} &= \begin{bmatrix} 1&1&1&0&0&0\\ 0&0&0&0&0&0\\ 1&0&0&1&1&0\\ 0&1&0&1&0&1\\ 0&0&1&0&1&1 \end{bmatrix}, &
+    L = D-A &= \begin{bmatrix} 3&0&-1&-1&-1\\ 0&0&0&0&0\\ -1&0&3&-1&-1\\ -1&0&-1&3&-1\\ -1&0&-1&-1&3 \end{bmatrix}.
+\end{align*}
+
+\noindent\textbf{(b) Laplacian eigenvalues and algebraic connectivity.}
+The consensus dynamics depend on the eigenvalues of the Laplacian matrix. The Laplacian $L$ always has a trivial eigenvalue $\lambda_1=0$ with the consensus-mode eigenvector $\tfrac{1}{\sqrt{N}}\ones_N$. The second smallest eigenvalue, $\lambda_2$, is the algebraic connectivity. Its magnitude is critically important because it dictates the decay rate of the disagreement modes (where the eigenvalues are $\mu_i = 1-\epsilon\lambda_i$ in discrete time): a higher $\lambda_2$ ensures that the network converges to the agreement state much faster. Moreover, $\lambda_2>0$ if and only if the graph is connected, and the multiplicity of the eigenvalue $0$ equals the number of connected components.
+
+For the graph above the eigenvalues are
+\begin{align*}
+    \lambda(L) = \{0,\ 0,\ 4,\ 4,\ 4\}, \qquad \lambda_2 = 0.
+\end{align*}
+So this particular realisation is \emph{not} connected: node $1$ has no edges (it is an isolated component), which is exactly what the double zero eigenvalue says. The remaining four nodes form a complete graph $K_4$ with eigenvalues $0,4,4,4$. Agents in this network can reach consensus only inside each component.
+
+\noindent\textbf{(c) High connectivity as a double-edged sword.}
+High connectivity in a multi-agent system provides both significant benefits and severe vulnerabilities:
+\begin{itemize}
+    \item \textbf{The advantage.} High connectivity implies a denser network with more edges, which increases the algebraic connectivity $\lambda_2$ and speeds up convergence to consensus. Furthermore, a highly connected graph is more likely to satisfy the $(F+1,F+1)$-robustness condition, which is a necessary and sufficient condition for algorithms like the Weighted Mean Sub-sequence Reduced (W-MSR) algorithm to achieve resilient consensus under an $F$-total malicious model.
+    \item \textbf{The disadvantage.} Conversely, high connectivity means that malicious nodes can also possess a high degree, allowing their toxic influence to reach a large number of benign agents directly. In resilient consensus strategies like W-MSR, where nodes must filter and ignore extreme values, an adversarial node with many connections can force numerous honest neighbours to simultaneously discard valid data points.
+\end{itemize}
+
+\subpart{Part 2: $N=10^3$ Erd\H{o}s--R\'enyi graph ($p=0.01$).}
+
+\noindent\textbf{(a) Mean degree, mean edges and diameter.}
+For an Erd\H{o}s--R\'enyi graph $G(N,p)$ the theoretical formulas are
+\begin{align*}
+    \text{mean degree: } c = (N-1)p, \qquad \text{mean edges: } m = p\binom{N}{2}, \qquad \text{so that } c = \frac{2m}{N}.
+\end{align*}
+The code computes the empirical values from the generated graph and compares them with theory:
+\begin{center}
+\begin{tabular}{lcc}
+\hline
+ & Empirical & Theoretical \\
+\hline
+Mean degree & $9.97$ & $9.99$ \\
+Mean edges & $4985$ & $4995$ \\
+\hline
+\end{tabular}
+\end{center}
+The values agree to within $0.2\%$, as expected for one sample of a random graph. The diameter of the graph is $6$; the corresponding path is drawn with orange edges, and the highest-degree node is highlighted in red.
+
+\noindent\textbf{(b) Shortest path.}
+The shortest path between two randomly chosen nodes is computed with Dijkstra's algorithm and drawn with bright green edges (here it has $4$ edges, well below the diameter, which is typical of a random graph).
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.78\textwidth]{p1_er_n1000.png}
+    \caption{$N=10^3$ Erd\H{o}s--R\'enyi graph. Red: highest-degree node. Orange: diameter path. Green: random shortest path.}
+\end{figure}
+\end{solution}
+\pycode{../problem1_er_graphs.py}{Source code for Problem 1 (\texttt{assignment-1/problem1\_er\_graphs.py}).}
+\problemend
+
+% Problem 2
+\begin{problem}{2}
+We denote the $i$th component of a vector $z$ at time $k\in\N$ by $(x_k)_i$. Consider a linear system $x_{t+1}=Ax_t$, $t=1,\dots,T$, with $x_t\in\R^n$ and $A\in\R^{n\times n}$. Find the matrix $S\in\R^{n\times n}$, which depends on the matrix $A$, to measure the $n$ numbers $\{(x_1)_1,(x_2)_2,\dots,(x_n)_n\}$, i.e., the $i$th component of the state at time $i$, for $i=1,\dots,n$, such that
+\begin{align*}
+    \begin{bmatrix} (x_1)_1\\ (x_2)_2\\ \vdots\\ (x_n)_n \end{bmatrix} = S x_1.
+\end{align*}
+\end{problem}
+\begin{solution}
+Given the discrete-time linear system $x_{t+1}=Ax_t$, the state at any time $k$ is obtained by repeatedly applying the update matrix $A$ to the initial state $x_1$:
+\begin{align*}
+    x_k = A^{k-1}x_1.
+\end{align*}
+We need a linear map $S\in\R^{n\times n}$ from the initial state to the stated sequence of components. Let $e_i\in\R^n$ be the $i$th standard basis vector (a column vector with a $1$ in position $i$ and $0$ elsewhere). The $i$th component of the state at time $i$ is isolated by the inner product
+\begin{align*}
+    (x_i)_i = e_i^\top x_i = e_i^\top\big(A^{i-1}x_1\big).
+\end{align*}
+Stacking these individual linear maps gives
+\begin{align*}
+    \begin{bmatrix} (x_1)_1\\ (x_2)_2\\ \vdots\\ (x_n)_n \end{bmatrix}
+    = \begin{bmatrix} e_1^\top x_1\\ e_2^\top A x_1\\ \vdots\\ e_n^\top A^{n-1}x_1 \end{bmatrix}
+    = \begin{bmatrix} e_1^\top\\ e_2^\top A\\ \vdots\\ e_n^\top A^{n-1} \end{bmatrix} x_1.
+\end{align*}
+Thus the linear operator $S$ is
+\begin{align*}
+    S = \begin{bmatrix} e_1^\top\\ e_2^\top A\\ e_3^\top A^2\\ \vdots\\ e_n^\top A^{n-1} \end{bmatrix}.
+\end{align*}
+\end{solution}
+\problemend
+
+% Problem 3
+\begin{problem}{3}
+Let $A=\begin{bmatrix} B & I_n\\ 0_n & B \end{bmatrix}$ with $B\in\R^{n\times n}$. Compute the following.
+\begin{enumerate}
+    \item Find $e^{At}$.
+    \item Let $n=2$ with $\alpha\in\R$, $\beta>0$ and assume $B=\begin{bmatrix} 1&\beta\\ 0&1 \end{bmatrix}\begin{bmatrix} \alpha&1\\ 0&\alpha \end{bmatrix}\begin{bmatrix} 1&-\beta\\ 0&1 \end{bmatrix}$. Compute $e^{At}$.
+\end{enumerate}
+\end{problem}
+\begin{solution}
+\subpart{Part 1.}
+We decompose $A$ into a block-diagonal matrix and a nilpotent block matrix:
+\begin{align*}
+    A = \underbrace{\begin{bmatrix} B & 0_n\\ 0_n & B \end{bmatrix}}_{:=D} + \underbrace{\begin{bmatrix} 0_n & I_n\\ 0_n & 0_n \end{bmatrix}}_{:=N}.
+\end{align*}
+Since $D$ and $N$ commute, $DN=ND=\begin{bmatrix} 0_n & B\\ 0_n & 0_n \end{bmatrix}$, we can use $e^{At}=e^{(D+N)t}=e^{Dt}e^{Nt}$. First,
+\begin{align*}
+    e^{Dt} = \begin{bmatrix} e^{Bt} & 0_n\\ 0_n & e^{Bt} \end{bmatrix}.
+\end{align*}
+Next, since $N^2=0$, the Taylor series of $e^{Nt}$ truncates after the first two terms:
+\begin{align*}
+    e^{Nt} = I_{2n}+Nt = \begin{bmatrix} I_n & tI_n\\ 0_n & I_n \end{bmatrix}.
+\end{align*}
+Multiplying the two results gives
+\begin{align*}
+    e^{At} = \begin{bmatrix} e^{Bt} & 0_n\\ 0_n & e^{Bt} \end{bmatrix}\begin{bmatrix} I_n & tI_n\\ 0_n & I_n \end{bmatrix} = \begin{bmatrix} e^{Bt} & te^{Bt}\\ 0_n & e^{Bt} \end{bmatrix}.
+\end{align*}
+
+\subpart{Part 2.}
+Let $P=\begin{bmatrix} 1&\beta\\ 0&1 \end{bmatrix}$, whose inverse is $P^{-1}=\begin{bmatrix} 1&-\beta\\ 0&1 \end{bmatrix}$, and $J=\begin{bmatrix} \alpha&1\\ 0&\alpha \end{bmatrix}$. Then $B=PJP^{-1}$ is a similarity transformation, so $e^{Bt}=Pe^{Jt}P^{-1}$. Writing $J=\alpha I_2+N_2$ with $N_2=\begin{bmatrix} 0&1\\ 0&0 \end{bmatrix}$ nilpotent,
+\begin{align*}
+    e^{Jt} = e^{\alpha t}e^{N_2t} = e^{\alpha t}\begin{bmatrix} 1&t\\ 0&1 \end{bmatrix}.
+\end{align*}
+Substituting back,
+\begin{align*}
+    e^{Bt} &= e^{\alpha t}\begin{bmatrix} 1&\beta\\ 0&1 \end{bmatrix}\begin{bmatrix} 1&t\\ 0&1 \end{bmatrix}\begin{bmatrix} 1&-\beta\\ 0&1 \end{bmatrix}
+    = e^{\alpha t}\begin{bmatrix} 1&t+\beta\\ 0&1 \end{bmatrix}\begin{bmatrix} 1&-\beta\\ 0&1 \end{bmatrix}
+    = e^{\alpha t}\begin{bmatrix} 1&t\\ 0&1 \end{bmatrix}.
+\end{align*}
+Using the block result of Part 1, the final matrix exponential is
+\begin{align*}
+    e^{At} = \begin{bmatrix} e^{Bt} & te^{Bt}\\ 0_2 & e^{Bt} \end{bmatrix}
+    = e^{\alpha t}\begin{bmatrix} 1&t&t&t^2\\ 0&1&0&t\\ 0&0&1&t\\ 0&0&0&1 \end{bmatrix}.
+\end{align*}
+\end{solution}
+\problemend
+
+% Problem 4
+\begin{problem}{4}
+Given an interval $[a,b]$ with $a<b$ and a polynomial $p(x)=\sum_{k=0}^{n-1}c_{k+1}x^k$ with coefficients $c\in\R^n$, prove that both the integral and the derivative of the polynomial $p(x)$ are linear functions of its coefficients. That is, prove that $\exists\,\alpha\in\R^n$ and $\exists\,\beta\in\R^n$ such that
+\begin{align*}
+    \alpha^\top c = \int_a^b p(x)\,dx, \qquad \beta^\top c = p'(x) = \frac{dp(x)}{dx}.
+\end{align*}
+\end{problem}
+\begin{solution}
+A linear mapping maps vectors from a domain vector space to a codomain, preserving addition and scalar multiplication. To prove that the two operators are linear maps of the coefficient vector $c$, we show that they can be written as inner products $\alpha^\top c$ and $\beta^\top c$.
+
+\subpart{Integral.}
+Since the integral is a linear operator, we can swap the sum and the integral:
+\begin{align*}
+    \int_a^b p(x)\,dx = \int_a^b\Big(\sum_{k=0}^{n-1}c_{k+1}x^k\Big)dx = \sum_{k=0}^{n-1}c_{k+1}\int_a^b x^k\,dx = \sum_{k=0}^{n-1}c_{k+1}\,\frac{b^{k+1}-a^{k+1}}{k+1}.
+\end{align*}
+This has exactly the structure of the inner product $\alpha^\top c$, with $\alpha\in\R^n$ given by
+\begin{align*}
+    \alpha_{k+1} = \frac{b^{k+1}-a^{k+1}}{k+1}, \qquad k=0,1,\dots,n-1.
+\end{align*}
+
+\subpart{Derivative.}
+Applying the power rule term by term,
+\begin{align*}
+    p'(x) = \frac{d}{dx}\Big(\sum_{k=0}^{n-1}c_{k+1}x^k\Big) = \sum_{k=1}^{n-1}c_{k+1}\,k\,x^{k-1}.
+\end{align*}
+This is likewise an inner product $\beta(x)^\top c$, where $\beta\in\R^n$ depends on the evaluation point $x$:
+\begin{align*}
+    \beta_1 = 0, \qquad \beta_{k+1} = k\,x^{k-1}, \qquad k=1,\dots,n-1.
+\end{align*}
+Because both operations reduce to fixed scalar multiples of the entries of the coefficient vector $c$, the definite integral and the derivative are linear functions of $c$. \qed
+\end{solution}
+\problemend
+
+% Problem 5
+\begin{problem}{5}
+Let $\{u_i\mid i\in\N_{\ge 1}\}$ be a sequence of vectors. Given $x_1=0$, let
+\begin{align*}
+    x_t = \frac{1}{t-1}\sum_{k=1}^{t-1}u_k, \qquad \forall\, t\in\N_{\ge 2}.
+\end{align*}
+This represents a recursive mean computation of a collection of vectors by accessing them one by one. Find matrices $A$, $B$ such that $x_{t+1}=Ax_t+Bu_t$ for $t=1,2,\dots$.
+\end{problem}
+\begin{solution}
+We are analysing a discrete-time linear algorithm mapping the state $x_t$ to $x_{t+1}$, given the recursive-mean equation
+\begin{align*}
+    x_t = \frac{1}{t-1}\sum_{k=1}^{t-1}u_k, \qquad \forall\, t\ge 2.
+\end{align*}
+Shifting the index to $t+1$, the next state is
+\begin{align*}
+    x_{t+1} = \frac{1}{t}\sum_{k=1}^{t}u_k.
+\end{align*}
+We separate the sum into the previous inputs and the single newest input:
+\begin{align*}
+    x_{t+1} = \frac{1}{t}\Big(\sum_{k=1}^{t-1}u_k + u_t\Big).
+\end{align*}
+From the explicit definition of $x_t$ we have $(t-1)x_t=\sum_{k=1}^{t-1}u_k$. Substituting this into the separated equation gives
+\begin{align*}
+    x_{t+1} = \frac{1}{t}\big((t-1)x_t+u_t\big) = \frac{t-1}{t}\,x_t + \frac{1}{t}\,u_t.
+\end{align*}
+Therefore, to fit the required form $x_{t+1}=Ax_t+Bu_t$, the matrices must be time-varying scalar multiples of the identity:
+\begin{align*}
+    A_t = \frac{t-1}{t}\,I, \qquad B_t = \frac{1}{t}\,I.
+\end{align*}
+\end{solution}
+\problemend
+
+\end{document}
