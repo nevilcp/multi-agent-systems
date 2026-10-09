@@ -1,0 +1,153 @@
+\documentclass[a4paper, 11pt]{article}
+\usepackage{../../latex/mas}
+
+\begin{document}
+\masheader{2}{Due: September 4, 2026}
+
+% Problem 1
+\begin{problem}{1}
+\textbf{Graph Theory and Consensus Dynamics.}
+Consider the consensus system $x[k+1]=Ax[k]$, for a network of $N$ agents with row-stochastic adjacency matrix $A\in\R^{N\times N}$. Let $v\in\R^N_{\ge 0}$ be the normalised left dominant eigenvector, i.e.\ $v^\top A=v^\top$ and $\ones_N^\top v=1$. The disagreement vector is $\delta[k]=x[k]-(v^\top x[k])\ones_N$.
+\begin{enumerate}[(a)]
+    \item Prove that $v^\top x[k]$ is constant over all time steps $k\in\N$.
+    \item Show that $(A-\ones_N v^\top)=(A-\ones_N v^\top)(I_N-\ones_N v^\top)$.
+    \item Show that the dynamics of the disagreement vector are given by $\delta[k+1]=(A-\ones_N v^\top)\,\delta[k]$.
+\end{enumerate}
+\end{problem}
+\begin{solution}
+\subpart{(a)}
+Since $x[k+1]=Ax[k]$ and $v^\top A=v^\top$,
+\begin{align*}
+    v^\top x[k+1] &= v^\top(Ax[k]) \\
+                  &= (v^\top A)\,x[k] && \text{(matrix multiplication is associative)} \\
+                  &= v^\top x[k]       && \text{(using } v^\top A=v^\top\text{)}.
+\end{align*}
+So $v^\top x[k+1]=v^\top x[k]$, and this holds for every $k$. Applying it repeatedly gives
+\begin{align*}
+    v^\top x[k] = v^\top x[k-1] = \cdots = v^\top x[0], \qquad \forall\,k\in\N,
+\end{align*}
+which means $v^\top x[k]$ never changes: it stays fixed at its initial value for all time.
+
+\subpart{(b)}
+Start from the right-hand side and multiply it out:
+\begin{align*}
+    (A-\ones_N v^\top)(I_N-\ones_N v^\top) &= AI_N - A\ones_N v^\top - \ones_N v^\top I_N + \ones_N v^\top\ones_N v^\top \\
+    &= A - A\ones_N v^\top - \ones_N v^\top + \ones_N (v^\top\ones_N)\,v^\top.
+\end{align*}
+Two facts simplify this:
+\begin{enumerate}[(i)]
+    \item $A$ is row-stochastic, so every row sums to $1$: $A\ones_N=\ones_N$.
+    \item $v$ satisfies $\ones_N^\top v=1$, and since this is a scalar, $v^\top\ones_N=1$ as well.
+\end{enumerate}
+Plugging these in,
+\begin{align*}
+    (A-\ones_N v^\top)(I_N-\ones_N v^\top) &= A - \ones_N v^\top - \ones_N v^\top + \ones_N(1)\,v^\top \\
+    &= A - \ones_N v^\top - \ones_N v^\top + \ones_N v^\top \\
+    &= A - \ones_N v^\top,
+\end{align*}
+which is exactly the left-hand side.
+
+\subpart{(c)}
+By definition $\delta[k]=x[k]-(v^\top x[k])\ones_N$, so at the next step $\delta[k+1]=x[k+1]-(v^\top x[k+1])\ones_N$. Substituting $x[k+1]=Ax[k]$ and using $v^\top x[k+1]=v^\top x[k]$ from part (a),
+\begin{align*}
+    \delta[k+1] = Ax[k]-(v^\top x[k])\ones_N = Ax[k]-\ones_N v^\top x[k] = (A-\ones_N v^\top)\,x[k],
+\end{align*}
+where the middle step only moves the scalar $v^\top x[k]$ next to $\ones_N$. It remains to check that $(A-\ones_N v^\top)x[k]$ equals $(A-\ones_N v^\top)\delta[k]$. Expanding the latter,
+\begin{align*}
+    (A-\ones_N v^\top)\,\delta[k] = (A-\ones_N v^\top)\big(x[k]-\ones_N v^\top x[k]\big) = (A-\ones_N v^\top)(I_N-\ones_N v^\top)\,x[k].
+\end{align*}
+Part (b) showed $(A-\ones_N v^\top)(I_N-\ones_N v^\top)=A-\ones_N v^\top$, so this reduces to $(A-\ones_N v^\top)\delta[k]=(A-\ones_N v^\top)x[k]$. Putting this back into the expression for $\delta[k+1]$ gives
+\begin{align*}
+    \delta[k+1] = (A-\ones_N v^\top)\,\delta[k]. \qquad\qed
+\end{align*}
+\end{solution}
+\problemend
+
+% Problem 2
+\begin{problem}{2}
+\textbf{Resilient Consensus, Robustness, and Privacy.}
+\begin{enumerate}
+    \item[2.1] Consider the given 3-robust graph, which offers robustness against $F=1$ local adversaries. Simulate the resilient consensus of this graph topology using the W-MSR protocol, with random initial conditions and an adversary free to behave arbitrarily.
+    \item[2.2] Argue, by constructing/drawing subsets, why this 3-robust graph is not a $(3,2)$-robust graph.
+    \item[2.3] Suppose a ``good'' eavesdropper monitors all communication links, identifies the malicious agent, and secretly modifies its transmitted values to protect benign neighbours. What strategy could the malicious agent use to evade the eavesdropper?
+    \item[2.4] Should benign agents run W-MSR directly on encrypted neighbour values, or decrypt first and then run W-MSR? Justify your choice, note the subsequent problem this creates, and summarise two seminal papers addressing it (one paragraph each, no cryptographic-algorithm details).
+\end{enumerate}
+\end{problem}
+\begin{solution}
+\subpart{2.1 Setup.}
+I index the nodes $0$--$7$, matching nodes $1$--$8$ in the figure, and build the adjacency list directly from the diagram (Figure~\ref{fig:graph}). Node $8$ (index $7$) plays the role of the local adversary: each benign node is allowed at most one such ``bad friend'', which is what the $F=1$ robustness guarantee is meant for. To make the effect of the attack obvious, I set the adversary to a fixed extreme value ($x_{\text{adv}}=100$) instead of a mild perturbation, while every benign node starts from a random initial condition.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.42\textwidth]{p2_graph.png}
+    \caption{The 3-robust graph. Nodes $1$--$4$ are the outer nodes, nodes $5$--$8$ the inner ones; the adversary is node $8$.}
+    \label{fig:graph}
+\end{figure}
+
+\noindent\textbf{W-MSR update rule.} At every iteration, each node looks at its own value together with its neighbours' values, sorts them, and throws out up to $F$ values that are strictly larger and up to $F$ that are strictly smaller than its own current value (as many as are available). It then sets its new value to the average of what remains, including its own value.
+
+\noindent\textbf{Inference.} Since the adversary always transmits the same extreme value, it keeps landing among the largest values in every benign neighbour's neighbourhood, so with $F=1$ it gets trimmed off before the averaging step, iteration after iteration. Because each benign node has at most one adversarial neighbour (exactly what $3$-robustness with $F=1$ guarantees), this filtering shuts the adversary out completely, and the benign nodes settle into a shared consensus value that stays within the range of their initial states, unaffected by the injected outlier.
+
+In the simulation (code at the end of this problem) the benign initial values lie in $[0.58,\,9.51]$ and, after $20$ iterations, all seven benign nodes agree to within $8\times 10^{-4}$ on a value of about $4.96$, while the adversary stays at $100$.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{wmsr_plot.png}
+    \caption{State trajectories $x_i[k]$ under the W-MSR protocol. Benign nodes converge to a common value while the adversary (dashed red) remains fixed at its extreme value and is filtered out.}
+\end{figure}
+
+\subpart{2.2}
+By definition, $\mathcal{G}$ is $(3,2)$-robust only if every pair of disjoint nonempty subsets $S_1,S_2\subset\mathcal{V}$ satisfies at least one of
+\begin{enumerate}[(i)]
+    \item $|\mathcal{X}_{S_1}^3|=|S_1|$,
+    \item $|\mathcal{X}_{S_2}^3|=|S_2|$,
+    \item $|\mathcal{X}_{S_1}^3|+|\mathcal{X}_{S_2}^3|\ge 2$,
+\end{enumerate}
+where $\mathcal{X}_S^3$ is the set of nodes in $S$ that have $3$ or more neighbours outside $S$. To show that the graph is not $(3,2)$-robust, I just need one pair of subsets for which all three conditions fail at once.
+
+\noindent\textbf{Partition used.} Take $S_1=\{1,2,3,4\}$ (the outer four nodes) and $S_2=\{5,6,7,8\}$ (the inner four), following the layout in Figure~\ref{fig:graph}.
+
+\noindent\textbf{Checking $S_1$.} Each outer node has exactly two neighbours in $S_2$:
+\begin{itemize}
+    \item Node $1\to\{5,7\}$: $2$ outside neighbours, so $1\notin\mathcal{X}_{S_1}^3$.
+    \item Node $2\to\{5,6\}$: $2$ outside neighbours, so $2\notin\mathcal{X}_{S_1}^3$.
+    \item Node $3\to\{5,7\}$: $2$ outside neighbours, so $3\notin\mathcal{X}_{S_1}^3$.
+    \item Node $4\to\{6,8\}$: $2$ outside neighbours, so $4\notin\mathcal{X}_{S_1}^3$.
+\end{itemize}
+So $|\mathcal{X}_{S_1}^3|=0\ne|S_1|=4$ and condition (i) fails.
+
+\noindent\textbf{Checking $S_2$.}
+\begin{itemize}
+    \item Node $5\to\{1,2,3\}$: $3$ outside neighbours, so $5\in\mathcal{X}_{S_2}^3$.
+    \item Node $6\to\{2,4\}$: $2$ outside neighbours, so $6\notin\mathcal{X}_{S_2}^3$.
+    \item Node $7\to\{1,3\}$: $2$ outside neighbours, so $7\notin\mathcal{X}_{S_2}^3$.
+    \item Node $8\to\{4\}$: $1$ outside neighbour, so $8\notin\mathcal{X}_{S_2}^3$.
+\end{itemize}
+So $|\mathcal{X}_{S_2}^3|=1\ne|S_2|=4$ and condition (ii) fails too.
+
+\noindent\textbf{Sum.} $|\mathcal{X}_{S_1}^3|+|\mathcal{X}_{S_2}^3|=0+1=1<2$, so condition (iii) fails as well. All three conditions fail for this single partition, which is enough to conclude that the graph is not $(3,2)$-robust, even though it is $3$-robust.
+
+\subpart{2.3}
+If the eavesdropper is actively catching and correcting obviously bad transmissions, such as a node broadcasting a fixed value of $100$, then the adversary's old trick of picking an extreme constant is no longer viable. That kind of glaring deviation is exactly what a good eavesdropper is built to catch.
+
+So the adversary has to get subtler. Instead of transmitting something wildly off, it can watch what its neighbours are sending (it has access to the same links) and nudge its own reported value just slightly away from theirs: small enough that it neither looks anomalous to the eavesdropper nor gets pushed into the top or bottom $F$ values that W-MSR's sorting step trims. Individually, each of these small deviations is invisible to both defences.
+
+The catch is that ``small per step'' does not mean ``small overall''. If the adversary keeps injecting this tiny bias consistently over many rounds rather than just once, the drift accumulates. W-MSR's guarantees are built around catching outliers, not around bounding the effect of a persistent, low-magnitude skew, so over time this can still nudge the whole network's consensus value away from where it should have converged.
+
+Basically, the adversary trades size for stealth: it gives up the big, obvious attack in exchange for a slow one that neither the eavesdropper nor W-MSR is designed to notice. Being robust against sudden extreme values is not the same as being robust against a patient, low-and-slow attack.
+
+\subpart{2.4}
+\textbf{Answer: decrypt first, then run W-MSR.}
+
+\noindent\textbf{Why.} W-MSR works only because it can sort the incoming values and cut off the top and bottom $F$. That sorting step needs numbers that are comparable in a meaningful sense. Ordinary encryption schemes do not preserve ordering: ciphertext $A$ being ``larger'' than ciphertext $B$ says nothing about the underlying plaintexts. So if a node tried to sort encrypted neighbour values directly, the resulting order would be essentially random relative to the true states. The filtering step could then just as easily throw away a legitimate benign value and keep the adversary's, which defeats the whole point of running W-MSR.
+
+\noindent\textbf{The problem this creates.} Decrypting before filtering fixes the ordering issue, but each node now sees its neighbours' actual plaintext states, which is exactly what the encryption was supposed to prevent. If a benign node is later compromised, or is simply ``honest-but-curious'', it has direct access to its neighbours' private values and can leak them. So encryption alone does not buy privacy once W-MSR needs to run on decrypted data. We need something that lets the filtering happen without any single node ever seeing everyone else's raw state, which is why this is an active research area combining resilience and privacy rather than treating them separately.
+
+\noindent\textbf{Two papers on this.}
+\begin{itemize}
+    \item \textbf{Mo and Murray, ``Privacy Preserving Average Consensus,'' \emph{IEEE Transactions on Automatic Control}, 2017.} Instead of encryption, the approach is to have each agent add carefully designed random noise to its transmitted state, noise that sums to zero across the network and decays to zero over time. Because of that structure, the network still converges to the exact true average in the long run, but at any given moment a neighbour (or an eavesdropper) only sees a noisy version of the state, not the real one. The initial condition ends up protected in a differential-privacy sense, without needing cryptography at all.
+    \item \textbf{Ruan, Gao, and Wang, ``Secure and Privacy-Preserving Consensus,'' \emph{IEEE Transactions on Automatic Control}, 2019.} This paper handles a tougher setting: privacy has to hold even if some neighbours collude or an eavesdropper watches every link, which can eventually break simple noise-based schemes if given enough observations to average out over time. Their fix is to have each node split its true value into multiple correlated pieces and hand those pieces out to different neighbours, so that the computation needed for consensus can still happen collectively using just those pieces, without any single node ever reconstructing another node's actual state.
+\end{itemize}
+\end{solution}
+\pycode{../problem2_wmsr.py}{Source code for Problem 2.1 (\texttt{assignment-2/problem2\_wmsr.py}).}
+\problemend
+
+\end{document}
