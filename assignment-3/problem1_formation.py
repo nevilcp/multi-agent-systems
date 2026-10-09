@@ -52,7 +52,7 @@ def generate_letter(letter, n_points, x_offset=0.0):
         raw_alloc[int(np.argmax(raw_alloc))] += 1
 
     pts = []
-    for (a, b), k in zip(strokes, raw_alloc):
+    for (a, b), k in zip(strokes, raw_alloc, strict=True):
         a, b = np.array(a, dtype=float), np.array(b, dtype=float)
         t = np.linspace(0, 1, k)
         seg = a[None, :] + t[:, None] * (b - a)[None, :]
@@ -73,7 +73,7 @@ letter_boundaries = [0]  # index into trajectory where each letter's phase ends
 err_history = []
 
 for target in targets:
-    for step in range(steps_per_letter):
+    for _ in range(steps_per_letter):
         e = p - target
         dp = -(L @ e) - kp * e
         p = p + dp * dt
@@ -104,7 +104,7 @@ nx.draw(
 )
 ax_g.set_title(f"Erdos-Renyi communication graph $\\mathcal{{G}}$ (N={N}, p={p_prob})")
 fig_g.tight_layout()
-fig_g.savefig("figs/p1_graph.png", dpi=200)
+fig_g.savefig("figures/p1_graph.png", dpi=200)
 plt.close(fig_g)
 
 # Figure 2 - snapshot of where the agents end up for each letter, with the
@@ -131,13 +131,13 @@ for i, ch in enumerate(NAME):
     axes[i].set_yticks([])
 fig.suptitle("Converged agent formations spelling NEVIL", y=1.03)
 fig.tight_layout()
-fig.savefig("figs/p1_letters.png", dpi=200, bbox_inches="tight")
+fig.savefig("figures/p1_letters.png", dpi=200, bbox_inches="tight")
 plt.close(fig)
 
 # Figure 3 - error over time, with dashed lines marking where each letter starts
 fig_e, ax_e = plt.subplots(figsize=(7.5, 3.2))
 ax_e.plot(err_history, color="#1f5fb8", lw=1.3)
-for i, b in enumerate(letter_boundaries[1:-1]):
+for b in letter_boundaries[1:-1]:
     ax_e.axvline(b, color="gray", ls="--", lw=0.8)
 tick_pos = [
     (letter_boundaries[i] + letter_boundaries[i + 1]) / 2 for i in range(len(NAME))
@@ -151,7 +151,7 @@ ax_e.set_title(
 )
 ax_e.grid(alpha=0.3)
 fig_e.tight_layout()
-fig_e.savefig("figs/p1_error.png", dpi=200)
+fig_e.savefig("figures/p1_error.png", dpi=200)
 plt.close(fig_e)
 
 # Animation - saved as mp4 so it's easy to drop into the GitHub submission
@@ -175,7 +175,7 @@ def update(frame):
 ani = animation.FuncAnimation(
     fig_a, update, frames=range(0, len(trajectory), 3), interval=15, blit=False
 )
-ani.save("figs/p1_nevil_formation.mp4", writer="ffmpeg", fps=40, dpi=150)
+ani.save("figures/p1_nevil_formation.mp4", writer="ffmpeg", fps=40, dpi=150)
 plt.close(fig_a)
 
-print("Problem 1 artifacts written to figs/")
+print("Problem 1 artifacts written to figures/")

@@ -1,0 +1,198 @@
+\documentclass[a4paper, 11pt]{article}
+\usepackage{../../latex/mas}
+
+\begin{document}
+\masheader{3}{Due: September 18, 2026}
+
+% Problem 1
+\begin{problem}{1}
+Fix the number of agents to be $N=20$. Generate a connected graph using the Erd\H{o}s--R\'enyi model for $N$ agents and some $p\in(0,1)$. Assume random initial positions for all $N$ agents in $\R^2$. Using a formation control strategy, display your name in capital letters in $\R^2$, letter by letter in a sequence. For instance, if my name is Venkat, I would drive the agents from the initial positions to the letter V, then from V to E, and so on until T. Record your name-formation sequence as an animation video through your simulation, host it on your GitHub, and simply give the GitHub link containing both the code and the video as your solution. Ensure the repository is public before submitting. For long names, use the name people commonly call you by rather than the full legal name.
+\end{problem}
+\begin{solution}
+\subpart{Formation control law.}
+I control the agents with a consensus-plus-anchoring law. Let $p_i(t)\in\R^2$ denote the position of agent $i$ and $p_i^*$ its target coordinate for the letter currently being formed. Over the Erd\H{o}s--R\'enyi communication graph $\mathcal{G}(\mathcal{V},\mathcal{E})$ with adjacency weights $a_{ij}\in\{0,1\}$, I run
+\begin{align*}
+    \dot p_i = -\sum_{j\in\mathcal{N}_i}a_{ij}\Big[(p_i-p_i^*)-(p_j-p_j^*)\Big] - k_p\,(p_i-p_i^*), \qquad k_p>0.
+\end{align*}
+Writing the formation error as $e_i=p_i-p_i^*$ and stacking over all agents, the consensus term is exactly $Le$, where $L$ is the graph Laplacian of $\mathcal{G}$, so componentwise
+\begin{align*}
+    \dot e = -(L+k_pI)\,e.
+\end{align*}
+Since $L\succeq 0$ for a connected graph and $k_p>0$, the matrix $L+k_pI$ is positive definite, so $e(t)\to 0$ exponentially: every agent reaches its assigned letter coordinate no matter what the graph topology looks like, as long as it stays connected. The anchoring term $k_pe_i$ does the important work here: on its own, the Laplacian term would only pull the agents into the right shape, not the right place, so the whole formation would be free to drift around the plane.
+
+\subpart{Name used.}
+For the letter sequence I used the name I actually go by: N $\to$ E $\to$ V $\to$ I $\to$ L. I built each letter out of straight-line strokes (N, for example, is a left vertical, a diagonal and a right vertical) and spread the $20$ agents along the strokes in proportion to stroke length, so every letter is populated by all $20$ agents.
+
+\subpart{Simulation.}
+The graph has $p=0.3$, the agents start uniformly at random in $[-1,7]^2$, and the dynamics are integrated with forward Euler ($\Delta t=0.03$, $k_p=0.6$, $260$ steps per letter). The final mean formation error $\frac{1}{N}\|p-p^*\|$ at the end of each letter is tiny:
+\begin{center}
+\begin{tabular}{lccccc}
+\hline
+Letter & N & E & V & I & L \\
+\hline
+Final error & $0.0021$ & $0.0025$ & $0.0024$ & $0.00002$ & $0.0036$ \\
+\hline
+\end{tabular}
+\end{center}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.4\textwidth]{p1_graph.png}
+    \caption{Connected Erd\H{o}s--R\'enyi communication graph $\mathcal{G}$ used for Problem 1 ($N=20$, $p=0.3$).}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{p1_letters.png}
+    \caption{Converged agent formations for each letter of the N--E--V--I--L sequence.}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{p1_error.png}
+    \caption{Mean formation error $\frac{1}{N}\|p-p^*\|$ through the sequence: the sawtooth pattern shows the controller re-converging every time the target letter switches.}
+\end{figure}
+\noindent\textbf{GitHub repository:} \url{https://github.com/nevilcp/multi-agent-systems.git}. It holds the formation-control code and the rendered animation (\texttt{assignment-3/figures/p1\_nevil\_formation.mp4}), as the assignment asks for.
+\end{solution}
+\pycode{../problem1_formation.py}{Source code for Problem 1 (\texttt{assignment-3/problem1\_formation.py}).}
+\problemend
+
+% Problem 2
+\clearpage
+\begin{problem}{2}
+A target intruder is tracked by a swarm of $N\in\N$ drones connected by a communication network $\mathcal{G}(\mathcal{V},\mathcal{E})$. The intruder's initial location $z_0\in\R^3$ is unknown with $z_0\sim\mathcal{N}(\bar z_0,\Sigma_0)$, and it performs a random walk $z(t+1)=z(t)+w$, $w\sim\mathcal{N}(0,\Sigma_w)$. Each drone $i$ is at a known fixed location $x_i\in\R^3$ and measures $y_i(t)=x_i-z(t)+v_i$, $v_i\sim\mathcal{N}(0,\Sigma_v^{(i)})$, with sensor noises independent across drones.
+\begin{enumerate}
+    \item Formulate the distributed state estimation of $z(t)$ as a consensus optimisation problem and specify each local objective $f_i$.
+    \item Find the estimate $\hat z(t)$ using a distributed gradient descent or distributed gradient tracking technique.
+    \item Fix $N<20$, generate a connected Erd\H{o}s--R\'enyi graph $\mathcal{G}$ and plot it. Fix $\bar z_0$, $\Sigma_0$, $\Sigma_w$, $\{x_i,\Sigma_v^{(i)}\}_{i=1}^N$. Simulate and plot the true trajectory $z(t)$, the drone locations, and the estimate $\hat z(t)$ for $t=[0,T_{\max}]$; report the estimation error $e(t)=\hat z(t)-z(t)$.
+\end{enumerate}
+\end{problem}
+\begin{solution}
+\subpart{(1) Consensus optimisation formulation.}
+Rearranging the measurement model gives a local, noisy observation of the target state at drone $i$:
+\begin{align*}
+    \tilde z_i(t) := x_i-y_i(t) = z(t)-v_i, \qquad -v_i\sim\mathcal{N}\big(0,\Sigma_v^{(i)}\big).
+\end{align*}
+Under the Gaussian noise model, the negative log-likelihood of $\tilde z_i(t)$ given $z$ is, up to an additive constant,
+\begin{align*}
+    -\log p\big(\tilde z_i(t)\mid z\big) = \tfrac12\big(z-\tilde z_i(t)\big)^\top\big(\Sigma_v^{(i)}\big)^{-1}\big(z-\tilde z_i(t)\big)+\text{const.}
+\end{align*}
+So the maximum-likelihood estimate that fuses all $N$ independent sensor readings solves the separable (consensus) optimisation problem
+\begin{align*}
+    \min_{z\in\R^3}\sum_{i=1}^N f_i(z,t), \qquad f_i(z,t)=\tfrac12\Big(z-\big(x_i-y_i(t)\big)\Big)^\top\big(\Sigma_v^{(i)}\big)^{-1}\Big(z-\big(x_i-y_i(t)\big)\Big).
+\end{align*}
+Since the $v_i$ are independent, this sum of per-agent quadratics is exactly the joint (inverse-covariance-weighted) least-squares estimator. Each $f_i$ is agent $i$'s own private cost, so this is already in standard multi-agent consensus-optimisation form.
+
+\subpart{(2) Distributed gradient descent estimate.}
+I let $W$ be a doubly-stochastic (Metropolis) weight matrix conforming to $\mathcal{G}$: $W_{ij}=1/(1+\max_k\deg(k))$ for $(i,j)\in\mathcal{E}$ and $W_{ii}=1-\sum_{j\ne i}W_{ij}$. Since
+\begin{align*}
+    \nabla f_i(z,t) = \big(\Sigma_v^{(i)}\big)^{-1}\Big(z-\big(x_i-y_i(t)\big)\Big),
+\end{align*}
+each drone runs, for $K$ inner iterations between successive measurement times $t\to t+1$,
+\begin{align*}
+    \hat z_i^{k+1}(t) = \sum_{j\in\mathcal{N}_i\cup\{i\}}W_{ij}\,\hat z_j^{k}(t) - \alpha\,\nabla f_i\big(\hat z_i^{k}(t),t\big), \qquad \alpha>0 \text{ (step size)}.
+\end{align*}
+After $K$ rounds, $\hat z_i^K(t)$ is each drone's local estimate of $z(t)$; I average across drones to get the reported network estimate $\hat z(t)$. Because I keep $\alpha$ fixed rather than diminishing it, DGD only converges to an $O(\alpha)$ neighbourhood of the true minimiser at each $t$. That is fine here, since $z(t)$ itself keeps moving, so exact convergence at every single time step is neither attainable nor useful. The step size does need to stay below $2/\lambda_{\max}\big((\Sigma_v^{(i)})^{-1}\big)$ for every $i$, or the iteration diverges; I ran into this myself (see below).
+
+\subpart{(3) Simulation.}
+I used $N=8$ drones, $T_{\max}=60$, fixed random sensor locations $x_i\in[-8,8]^3$, $\bar z_0=(2,-1,3)$, $\Sigma_0=0.6\,I$, $\Sigma_w=0.05\,I$, and $\Sigma_v^{(i)}=\sigma_i^2I$ with $\sigma_i^2\sim U(0.15,0.6)$. My first attempt at a step size ($\alpha=0.35$) diverged outright: it was too large relative to the inverse-covariance terms in the gradient, exactly the instability the bound above warns about. Dropping it to $\alpha=0.04$ fixed it.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.38\textwidth]{p2_graph.png}
+    \caption{Connected Erd\H{o}s--R\'enyi drone communication graph ($N=8$, $p=0.45$).}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{p2_tracking.png}
+    \caption{Left: true intruder trajectory $z(t)$ against the network's DGD estimate $\hat z(t)$, with the fixed drone locations. Right: estimation error $\|e(t)\|=\|\hat z(t)-z(t)\|$ over time.}
+\end{figure}
+\noindent\textbf{Observation.} The estimated trajectory tracks the true random walk closely, oscillating around it rather than drifting away, and $\|e(t)\|$ settles into a noisy steady band (mean $\approx 0.3$ over the last $20$ steps) instead of decaying to zero. That is exactly the fixed-step-size DGD behaviour predicted above: the estimator is limited by sensor noise and the constant step size, not by the graph topology, since all $8$ drones agree closely with each other by the end of every inner consensus phase.
+\end{solution}
+\pycode{../problem2_tracking.py}{Source code for Problem 2 (\texttt{assignment-3/problem2\_tracking.py}).}
+\problemend
+
+% Problem 3
+\clearpage
+\begin{problem}{3}
+$N$ agents on an undirected connected graph $\mathcal{G}(\mathcal{V},\mathcal{E})$ must collaboratively execute $M>N$ tasks $\mathcal{T}=\{T_1,\dots,T_M\}$. Agent $i$ has cost $C_{ij}$ for task $T_j$ (cost matrix $C\in\R^{N\times M}$) and capacity $b_i\in\mathbb{Z}_{\ge 0}$ with $\sum_ib_i=M$.
+\begin{enumerate}
+    \item Formulate task allocation as an optimisation problem with the ADMM updates for every agent $i$. (Hint: binary program $\to$ NP-hard $\to$ use a convex relaxation.)
+    \item Randomly fix $M>N$, generate a connected Erd\H{o}s--R\'enyi graph, fix capacities $b_i$ summing to $M$, and a random positive cost matrix $C$. Plot the graph and the ADMM task allocation. Re-run with a different $C$ (same $N$, $M$, $b$) and explain the observed differences.
+\end{enumerate}
+\end{problem}
+\begin{solution}
+\subpart{(1) Formulation and ADMM updates.}
+Let $X\in\{0,1\}^{N\times M}$ with $X_{ij}=1$ iff agent $i$ is assigned task $j$. This binary program is NP-hard for large $M,N$, so I relax it to $X_{ij}\in[0,1]$. Let $x_i,c_i\in\R^M$ be row $i$ of $X$, $C$. The relaxed problem is
+\begin{align*}
+    \min_{\{x_i\}}\sum_{i=1}^N c_i^\top x_i \quad \text{s.t.}\quad x_i\in\mathcal{X}_i:=\{x_i:\ones^\top x_i=b_i,\ 0\le x_i\le 1\}\ \ \forall i, \qquad \sum_{i=1}^N x_i=\ones_M,
+\end{align*}
+i.e.\ each agent's local capacity constraint is private, while the ``every task done exactly once'' constraint is global. This is exactly the ADMM \emph{sharing-problem} structure, which I rewrite as $\frac1N\sum_ix_i=\frac1N\ones_M$.
+
+$\mathcal{G}$ is only a communication graph, so there is no central node to compute that global average for everyone. I get around this by giving every agent its \emph{own} scaled dual $u_i\in\R^M$ and having it estimate the network average purely from talking to its neighbours over $\mathcal{G}$, using $R$ rounds of the doubly-stochastic averaging matrix $W$ (the same idea as in Problem 2). With penalty $\rho>0$, the fully distributed ADMM updates I run at outer iteration $k$ are
+\begin{align}
+    x_i^{k+1} &= \argmin_{x_i\in\mathcal{X}_i}\ c_i^\top x_i+\frac{\rho}{2}\Big\|x_i-x_i^k+\big(WX^k\big)_i-\tfrac1N\ones_M+u_i^k\Big\|_2^2 && \text{(local primal QP)} \\
+    \bar x_i^{k+1} &= \big(W^RX^{k+1}\big)_i && \text{(local averaging, $R$ rounds)} \\
+    u_i^{k+1} &= u_i^k+\bar x_i^{k+1}-\tfrac1N\ones_M && \text{(local dual update)}
+\end{align}
+where $X^k$ stacks all $x_i^k$ and $(WX^k)_i$ is agent $i$'s one-hop mixing of its neighbours' current iterates. I feed this straight into agent $i$'s own QP, so the primal step only ever needs information from its neighbours. As $R\to\infty$, $\bar x_i^{k+1}\to\frac1N\sum_jx_j^{k+1}$ for every $i$, and the three updates reduce to the standard centralised sharing-ADMM iteration; with finite $R$, this is the fully graph-respecting distributed version I actually simulate below.
+
+\subpart{(2) Simulation and observations.}
+I used $N=5$ agents, $M=15$ tasks, capacities $b=(5,3,1,5,1)$ (randomly drawn, summing to $15$), $\rho=2$, $150$ outer iterations and $R=8$ consensus rounds per iteration, with the local QPs solved via \texttt{cvxpy}/OSQP.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{p3_admm.png}
+    \caption{Left: connected agent graph $\mathcal{G}$ ($N=5$). Middle: converged allocation $X$ under the baseline random cost matrix $C_1$. Right: converged allocation under $C_2$, identical except that agent~$0$'s costs are scaled down by $4\times$ (all else fixed: same graph, same $b$).}
+\end{figure}
+\noindent\textbf{Observations.} In both runs, each agent's row sums to exactly its capacity $b_i$; that is a hard local constraint, enforced exactly inside every local QP. Each task's column, on the other hand, only sums to $1$ approximately (maximum deviation $\approx 0.03$ for $C_1$ and $\approx 0.004$ for $C_2$ after $150$ iterations), since the global coverage constraint is only enforced asymptotically through the distributed averaging and dual feedback; a longer run or a larger $\rho$ tightens this further.
+
+Comparing the two heatmaps, under $C_1$ agent $0$ shares many tasks with agent $3$ at middling fractional values, since the two are fairly evenly matched on cost. Once I make agent $0$ four times cheaper ($C_2$), its allocation values on the tasks it wins go up and it visibly displaces the other agents on those columns, while agent $3$, its main competitor, shrinks back to what is left over. The allocation never becomes perfectly binary under either cost matrix, which is just the quadratic-penalty relaxation showing itself: getting a genuinely integral assignment out of this would need a separate rounding step, or a decentralised auction algorithm, on top of what ADMM gives here, which is exactly what the hint about NP-hardness was pointing at.
+\end{solution}
+\pycode{../problem3_admm.py}{Source code for Problem 3 (\texttt{assignment-3/problem3\_admm.py}).}
+\problemend
+
+% Problem 4
+\begin{problem}{4}
+Consider the LASSO problem
+\begin{align*}
+    \min_x\ \Big[\tfrac12\|Ax-b\|_2^2+\lambda\|x\|_1\Big].
+\end{align*}
+Write the ADMM iteration updates, solving and writing the closed-form solution for the $x$ and $z$ updates.
+\end{problem}
+\begin{solution}
+I introduce a splitting variable $z\in\R^n$ to decouple the smooth quadratic term from the non-smooth $\ell_1$ term:
+\begin{align*}
+    \min_{x,z}\ \tfrac12\|Ax-b\|_2^2+\lambda\|z\|_1 \quad\text{s.t.}\quad x-z=0.
+\end{align*}
+With the scaled dual variable $u=y/\rho$, the scaled augmented Lagrangian is
+\begin{align*}
+    \mathcal{L}_\rho(x,z,u)=\tfrac12\|Ax-b\|_2^2+\lambda\|z\|_1+\tfrac\rho2\|x-z+u\|_2^2,
+\end{align*}
+and ADMM alternates minimising over $x$, then $z$, then takes a dual ascent step on $u$.
+
+\subpart{$x$-update.}
+Minimising $\mathcal{L}_\rho$ over $x$ with $z,u$ fixed is an unconstrained quadratic:
+\begin{align*}
+    x^{k+1}=\argmin_x\ \tfrac12\|Ax-b\|_2^2+\tfrac\rho2\|x-z^k+u^k\|_2^2.
+\end{align*}
+Setting the gradient to zero, $A^\top(Ax-b)+\rho(x-z^k+u^k)=0$, gives the closed form
+\begin{align*}
+    \boxed{x^{k+1}=\big(A^\top A+\rho I\big)^{-1}\Big(A^\top b+\rho\,(z^k-u^k)\Big)}
+\end{align*}
+I only need to compute $(A^\top A+\rho I)^{-1}$ (or its Cholesky/LU factors) once and reuse it in every iteration, since it does not depend on $k$.
+
+\subpart{$z$-update.}
+Minimising over $z$ isolates the proximal operator of the $\ell_1$ norm:
+\begin{align*}
+    z^{k+1}=\argmin_z\ \lambda\|z\|_1+\tfrac\rho2\|x^{k+1}-z+u^k\|_2^2=\mathrm{prox}_{(\lambda/\rho)\|\cdot\|_1}\big(x^{k+1}+u^k\big).
+\end{align*}
+This proximal operator has the classical element-wise soft-thresholding closed form, $S_\kappa(a)=\mathrm{sign}(a)\max(0,|a|-\kappa)$, so
+\begin{align*}
+    \boxed{z^{k+1}=S_{\lambda/\rho}\big(x^{k+1}+u^k\big)}, \qquad (z^{k+1})_m=\mathrm{sign}\big((x^{k+1}+u^k)_m\big)\max\Big(0,\ \big|(x^{k+1}+u^k)_m\big|-\frac\lambda\rho\Big).
+\end{align*}
+
+\subpart{$u$-update (dual ascent).}
+\begin{align*}
+    \boxed{u^{k+1}=u^k+x^{k+1}-z^{k+1}}
+\end{align*}
+Putting these three closed-form updates together gives the full ADMM iteration for LASSO: an $x$-step that is a single linear solve, a $z$-step that is a cheap element-wise shrinkage, and a $u$-step that is just a vector addition. Each ADMM iteration therefore costs $O(n^3)$ once, for the cached factorisation, and $O(n)$ after that, which is exactly why ADMM scales so much better to large sparse-regression problems than solving the LASSO directly as one big QP.
+\end{solution}
+\problemend
+
+\end{document}
