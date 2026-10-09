@@ -1,0 +1,80 @@
+% Common style for all Multi-Agent Systems assignment reports.
+%
+% Every assignment has the same layout:
+%     assignment-N/report/main.tex   (this style + the content)
+%     assignment-N/figures/          (found automatically via \graphicspath)
+%     assignment-N/*.py              (listed in the report with \pycode)
+%
+% Usage in assignment-N/report/main.tex:
+%     \documentclass[a4paper, 11pt]{article}
+%     \usepackage{../../latex/mas}
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{mas}[2026/10/10 Common style for MAS assignment reports]
+
+\RequirePackage[a4paper, total={7in, 10in}]{geometry}
+\RequirePackage[fleqn]{amsmath}
+\RequirePackage{amssymb, amsthm}
+\RequirePackage{graphicx}
+\RequirePackage{float}
+\RequirePackage{xcolor}
+\RequirePackage{mdframed}
+\RequirePackage[shortlabels]{enumitem}
+\RequirePackage{indentfirst}
+\RequirePackage{needspace}
+\RequirePackage{listings}
+\RequirePackage{hyperref}
+
+\graphicspath{{../figures/}}
+
+% ---------------------------------------------------------------- code listings
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{teal},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    breaklines=true,
+    frame=single,
+    showstringspaces=false
+}
+
+% \pycode{path/to/script.py}{caption}: the script is read straight from the repo,
+% so the report can never drift from the code that produced the results.
+\newcommand{\pycode}[2]{%
+    \Needspace{8\baselineskip}
+    \par\medskip\noindent\textit{#2}\par\smallskip
+    \lstinputlisting{#1}}
+
+% ---------------------------------------------------------------- page header
+% \masheader{assignment number}{right-hand side of the last header line, e.g. Due: ...}
+\newcommand{\masheader}[2]{%
+    \noindent
+    {\large\textbf{Nevil C Prince} \hfill \textbf{Multi-Agent Systems (MAS) -- Assignment \##1}} \\
+    Email: ep23btech11019@iith.ac.in \hfill Roll No: EP23BTECH11019 \\
+    Course: Multi-Agent Systems (MAS) \\
+    Instructor: Dr. Venkatraman Renganathan \hfill #2 \\
+    \noindent\rule{\textwidth}{2.8pt}\par\bigskip}
+
+% ---------------------------------------------------------------- problems & solutions
+\newenvironment{problem}[2][Problem]
+    {\begin{mdframed}[backgroundcolor=gray!20]\textbf{#1 #2}\\}
+    {\end{mdframed}}
+
+\newenvironment{solution}{\textit{Solution:}\par}{}
+
+% horizontal rule closing a problem
+\newcommand{\problemend}{\par\medskip\noindent\rule{\textwidth}{2.8pt}\par\bigskip}
+
+% bold run-in heading for the parts of a solution
+\newcommand{\subpart}[1]{\medskip\noindent\textbf{#1}\ }
+
+\renewcommand{\qed}{\quad\qedsymbol}
+
+% ---------------------------------------------------------------- maths shorthand
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\ones}{\mathbf{1}}
+\newcommand{\T}{^{\top}}
+\DeclareMathOperator*{\argmin}{arg\,min}
