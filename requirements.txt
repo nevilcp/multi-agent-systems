@@ -1,0 +1,6 @@
+numpy
+scipy
+matplotlib
+networkx
+cvxpy
+ruff  # linting (make lint)

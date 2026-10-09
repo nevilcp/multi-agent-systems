@@ -1,4 +1,45 @@
+# Shared virtual environment (one .venv at the repo root serves every assignment)
 .venv/
+venv/
+env/
+**/.venv/
+**/venv/
+
+# Secrets / local config
+.env
+
+# Python
+.python-version
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
 .ruff_cache/
+
+# LaTeX build files
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Built reports (the submitted PDFs live next to each assignment's code)
+assignment-*/report/main.pdf
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Scratch / local-only outputs
+*.tmp
+*.bak
