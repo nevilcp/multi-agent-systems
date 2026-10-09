@@ -1,0 +1,341 @@
+\documentclass[a4paper, 11pt]{article}
+\usepackage{../../latex/mas}
+
+% Shorthand for the temporal-logic part
+\newcommand{\ap}[1]{\mathsf{#1}}
+\newcommand{\LF}{\ap{LoginFailure}}
+\newcommand{\LS}{\ap{LoginSuccess}}
+\newcommand{\AL}{\ap{AccountLocked}}
+\newcommand{\AU}{\ap{AccountUnlocked}}
+\newcommand{\AV}{\ap{AdminVerified}}
+\newcommand{\PR}{\ap{PasswordResetRequested}}
+\newcommand{\UN}{\ap{UserNotified}}
+\newcommand{\SA}{\ap{SuspiciousActivityDetected}}
+\newcommand{\AS}{\ap{AnomalyScore}}
+\newcommand{\FR}{\ap{FailedAttemptRate}}
+\newcommand{\LC}{\ap{LegitimateUserConfidence}}
+\newcommand{\LK}{\ap{AccountLockStatus}}
+\newcommand{\G}{\Box}
+\newcommand{\F}{\Diamond}
+\newcommand{\X}{\bigcirc}
+\newcommand{\On}[2]{\mathrm{On}(#1,\,#2)}
+
+\begin{document}
+\masheader{4}{Due: October 09, 2026}
+
+\begin{problem}{1}
+\textbf{Data-Driven Epidemic Modelling and Vaccination on Networks.}
+A population of $N=300$ individuals is connected through an undirected contact network (\texttt{data/network.csv}), and the SIR state of every individual is recorded daily (\texttt{data/epidemic\_data.csv}). From these data: (1) compute and plot $S[k], I[k], R[k]$ and report the peak, final size and infected fraction; (2) estimate $\gamma$; (3) estimate $\beta$ and $R_0$; (4) simulate the fitted continuous SIR model and compare it with the data; (5) decide whether the outbreak was an epidemic; (6) compare random, degree-based and eigenvector-centrality vaccination with a budget of $B=15$ nodes.
+\end{problem}
+\begin{solution}
+All the numbers below come from the code at the end of this problem (\texttt{problem1.py}). The data cover $101$ days ($k=0,\dots,100$) and the network has $1558$ edges.
+
+\medskip
+\noindent\textbf{Part 1: Observed trajectories.}
+For each day I simply counted how many people were in each state. The starting point is $S[0]=296$, $I[0]=4$, $R[0]=0$.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.62\textwidth]{p1_sir_counts.png}
+    \caption{Observed $S[k]$, $I[k]$ and $R[k]$.}
+    \label{fig_q1}
+\end{figure}
+\begin{enumerate}[(a)]
+    \item Maximum number of simultaneously infected individuals: $\max_k I[k] = \mathbf{110}$.
+    \item The peak occurs on day $\mathbf{34}$.
+    \item Individuals who experienced infection: $N - S[100] = 300 - 18 = \mathbf{282}$.
+    \item Fraction of the population infected: $282/300 = \mathbf{0.94}$.
+\end{enumerate}
+
+\medskip
+\noindent\textbf{Part 2: Recovery rate.}
+I averaged the forward-Euler estimate $\gamma_k = (R[k+1]-R[k])/(I[k]\Delta t)$ over all days with $I[k]>0$:
+\begin{align*}
+    \hat{\gamma} &= \frac{1}{|\mathcal{K}|}\sum_{k\in\mathcal{K}} \frac{R[k+1]-R[k]}{I[k]\Delta t} \approx \mathbf{0.0713\ day^{-1}}.
+\end{align*}
+The average infectious duration is $1/\hat{\gamma} \approx \mathbf{14.0}$ days.
+
+\medskip
+\noindent\textbf{Part 3: Transmission rate and reproduction number.}
+The susceptible equation $\dot S = -\beta S I$ discretizes to $S[k+1]-S[k]\approx -\beta S[k]I[k]\Delta t$, so averaging over $\mathcal{K}_\beta=\{k: S[k]I[k]>0\}$ gives
+\begin{align*}
+    \hat{\beta} &= \frac{1}{|\mathcal{K}_\beta|}\sum_{k\in\mathcal{K}_\beta} \frac{S[k]-S[k+1]}{S[k]I[k]\Delta t} \approx \mathbf{7.97\times 10^{-4}}\ \text{(per person per day)}.
+\end{align*}
+The model works with head-counts, so the reproduction number is
+\begin{align*}
+    \hat{R}_0 &= \frac{\hat{\beta}\, S(0)}{\hat{\gamma}} \approx \frac{\hat{\beta}N}{\hat{\gamma}} \approx \mathbf{3.35}.
+\end{align*}
+Since $\hat{R}_0>1$, an infected person passes the disease to more than one other person early on, so the infection grows at first and only dies down once enough people have left the susceptible pool. So yes, this disease can cause an epidemic.
+
+\medskip
+\noindent\textbf{Part 4: Fitted SIR model.}
+I integrated $\dot S=-\hat\beta SI$, $\dot I=\hat\beta SI-\hat\gamma I$, $\dot R=\hat\gamma I$ from $(S,I,R)(0)=(296,4,0)$.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.62\textwidth]{p1_sir_fit.png}
+    \caption{Simulated SIR model (lines) against the observed data (dots).}
+    \label{fig_q4}
+\end{figure}
+The model gets the overall shape right: a rise, a single peak and then a burnout. The details are a bit off. It peaks at about $103$ infected on day $31$ (data: $110$ on day $34$) and leaves about $12$ susceptibles at the end (data: $18$). The RMSE is roughly $26$, $12$ and $24$ individuals for $S$, $I$ and $R$. That is not surprising, because the model assumes everyone mixes with everyone while the real spread happens along a sparse network, and $\hat\beta,\hat\gamma$ come from simple Euler ratios.
+
+\medskip
+\noindent\textbf{Part 5: Was it an epidemic?}
+Yes, it was an epidemic. The evidence points the same way everywhere:
+\begin{itemize}
+    \item the infected count grew from $4$ to $110$ (about $27\times$) before declining;
+    \item $\hat{R}_0\approx 3.35 > 1$, so early growth is expected;
+    \item at the peak $37\%$ of the population was infected at the same moment;
+    \item $94\%$ of the population ended up being infected;
+    \item the fitted SIR model shows the same behaviour with no special assumptions.
+\end{itemize}
+
+\medskip
+\noindent\textbf{Part 6: Vaccination with $B=15$.}
+For this part I ran a stochastic, discrete-time SIR process on the actual network. Each day a susceptible node is infected with probability $1-(1-p)^{m}$, where $m$ is its number of infected neighbours, and an infected node recovers with probability $\hat{\gamma}$. I calibrated the edge probability $p$ so that the unvaccinated final size matches the data ($p=0.03$; using the raw edge weight $0.0963$ overshoots to about $299$ infected). Vaccinated nodes are removed before day $0$. Every row below is an average over $300$ runs, and $N_\text{infected}$ does not count the $15$ vaccinated nodes.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\hline
+Strategy & $I_{\max}$ & $T_{\text{peak}}$ (day) & $N_{\text{infected}}$ \\
+\hline
+No vaccination & 122.0 & 27.3 & 284.6 \\
+Random & 111.8 & 28.8 & 268.3 \\
+Degree-based & \textbf{101.1} & 31.4 & \textbf{263.2} \\
+Eigenvector-based & 102.5 & 31.7 & 265.0 \\
+\hline
+\end{tabular}
+\caption{Comparison of vaccination strategies (mean of 300 simulations).}
+\end{table}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.62\textwidth]{p1_vaccination.png}
+    \caption{Mean infection trajectories for each strategy.}
+    \label{fig_q6}
+\end{figure}
+\begin{enumerate}[(a)]
+    \item \textbf{Best strategy.} Degree-based and eigenvector-based vaccination did best, and they are almost tied. Both bring the peak down from $122$ to about $101$--$103$ and push it back by roughly four to five days. Random vaccination helps less ($I_{\max}\approx 112$). The final sizes of all three strategies are close, which makes sense: $15$ people are only $5\%$ of the population and the run-to-run spread in $N_\text{infected}$ is several individuals, so the peak is where the difference is clearest.
+    \item \textbf{Why some nodes matter more.} A hub has many neighbours, so it would have passed the infection along many edges, and removing it cuts all of those paths at once. A random node has only about $10$ edges on average, while the top nodes have $16$--$22$. Taking out hubs also lowers the largest eigenvalue of the network ($\lambda_{\max}(A)\approx 11.4$ before removal), which largely decides how easily an outbreak takes off. Eigenvector centrality additionally favours nodes whose neighbours are well connected too, so it goes after the dense core.
+    \item \textbf{Degree versus eigenvector centrality.} No, not always. Here only $11$ of the $15$ chosen nodes are the same. A node with high degree whose neighbours are poorly connected gets a lower eigenvector score, while a node of moderate degree sitting in a cluster of hubs gets a higher one. In this network the two rankings are strongly correlated (degrees are fairly even, with a mean of $10.4$ and a maximum of $22$), which is why the results are nearly identical. On networks with strong hubs or clear communities the two can differ a lot.
+\end{enumerate}
+\end{solution}
+\pycode{../problem1.py}{Source code for Problem 1 (\texttt{assignment-4/problem1.py}).}
+\problemend
+
+% Problem 2
+\clearpage
+
+\begin{problem}{2}
+\sloppy
+\textbf{Temporal Logic Specification for a Cyber-security System.}
+For an online authentication system with eight Boolean propositions (\texttt{LoginFailure}, \texttt{LoginSuccess}, \texttt{AccountLocked}, \texttt{AccountUnlocked}, \texttt{AdminVerified}, \texttt{PasswordResetRequested}, \texttt{UserNotified}, \texttt{SuspiciousActivityDetected}) and four real-valued signals (\texttt{AnomalyScore}, \texttt{FailedAttemptRate}, \texttt{LegitimateUserConfidence}, \texttt{AccountLockStatus}): (A) write LTL formulas for six requirements; (B) write MTL formulas for six timing requirements; (C) write STL formulas for six requirements on the real-valued signals with $A_{\text{crit}}=0.8$, $F_{\text{crit}}=5$, $C_{\text{safe}}=0.9$; (D) answer three conceptual questions; (E) construct four example traces.
+\end{problem}
+\begin{solution}
+\noindent\textbf{Notation and assumptions.}
+$\G$ is ``always'', $\F$ is ``eventually'', $\X$ is ``next'', $\mathcal{U}$ is ``until'' and $\varphi\,\mathcal{W}\,\psi \equiv (\varphi\,\mathcal{U}\,\psi)\vee\G\varphi$ is ``weak until'' (the same as until, except that $\psi$ is allowed never to happen). In MTL and STL, $\F_{[a,b]}\varphi$ means $\varphi$ holds at some time in the window $[t+a,\,t+b]$ and $\G_{[a,b]}\varphi$ means $\varphi$ holds at all times in that window; time is measured in seconds. I treat $\AU\equiv\neg\AL$ and take $\AV$, $\PR$ and $\UN$ as events that hold at the instant they happen.
+
+Several requirements are about something \emph{becoming} true, such as an account \emph{becoming} locked. Writing $\G(\AL\to\dots)$ would repeat the obligation at every instant the account stays locked, which is stronger than what is asked. So for ``$p$ becomes true'' I use the abbreviation
+\begin{align*}
+    \On{p}{\varphi} &:= (p\to\varphi)\ \wedge\ \G\big(\neg p\to\X(p\to\varphi)\big),
+\end{align*}
+which requires $\varphi$ exactly at the instants where $p$ switches from false to true (and at the start if $p$ already holds there).
+
+\bigskip
+\noindent\textbf{Part A: LTL specifications.}
+\begin{enumerate}[\textbf{A\arabic*.}]
+    \item $\G\big(\AL \to \neg\LS\big)$. \\
+    At every instant, if the account is locked then no successful login is happening. The implication is the standard way to say ``whenever $p$, then not $q$''.
+
+    \item $\On{\AL}{\ \AL\ \mathcal{W}\ \AV\ }$. \\
+    From the moment the account becomes locked, it must stay locked until admin verification happens, so unlocking before that is forbidden. I chose weak until because the requirement never promises that verification will happen. If it doesn't, the account just stays locked forever, which is still allowed.
+
+    \item $\G\big((\AV \wedge \AL) \to \F\,\AU\big)$. \\
+    Whenever verification is completed while the account is locked, the account must eventually be unlocked. This is a liveness property, so it uses $\F$ and says nothing about \emph{when}.
+
+    \item $\G\big(\PR \to \F(\AU \vee \AV)\big)$. \\
+    After any password-reset request, at least one of the two outcomes, unlocked account or completed verification, must eventually occur. The disjunction is inside the $\F$ because either outcome is enough.
+
+    \item $\G\,\neg(\LS \wedge \LF)$. \\
+    This is a safety property: both can never be true at the same instant, which is what ``never simultaneously'' says.
+
+    \item $\On{\AL}{\ \F\,\UN\ }$. \\
+    Every time the account becomes locked, a notification must eventually follow (the notification may even happen at the same instant, since $\F$ includes the present).
+\end{enumerate}
+
+\bigskip
+\noindent\textbf{Part B: MTL specifications.}
+\begin{enumerate}[\textbf{B\arabic*.}]
+    \item $\On{\SA}{\ \F_{[0,10]}\,\AL\ }$. \\
+    The interval $[0,10]$ turns the open-ended ``eventually'' into a deadline: the lock must happen within $10$ seconds of suspicious activity starting, and the $0$ allows it to be immediate.
+
+    \item $\On{\AL}{\ \F_{[0,30]}\,\UN\ }$. \\
+    The user must be notified within $30$ seconds after the account becomes locked. A notification after the $30$-second window does not count.
+
+    \item $\G\big(\PR \to \F_{[0,600]}\,\AV\big)$. \\
+    $10$ minutes is $600$ seconds, so verification has to be completed in $[0,600]$ after the request.
+
+    \item $\On{\AL}{\ \G_{[0,60]}\AL\ \vee\ (\AL\ \mathcal{U}_{[0,60]}\ \AV)\ }$. \\
+    After the lock starts, one of two things must hold. Either the account stays locked for the entire first $60$ seconds ($\G_{[0,60]}\AL$), or verification is completed at some time inside those $60$ seconds and the account was locked until then ($\AL\,\mathcal{U}_{[0,60]}\,\AV$). In the second case the early unlock is excused, which covers the ``unless verification has already been completed'' part.
+
+    \item $\G\big(\AV \to \F_{[0,120]}\,\AU\big)$. \\
+    Two minutes is $120$ seconds, so the account must be unlocked within $[0,120]$ after the verification is completed.
+
+    \item $\G\big(\LF \to \F_{(0,20]}(\LS \vee \AL)\big)$. \\
+    The interval $(0,20]$ looks strictly into the \emph{following} $20$ seconds (not the failure instant itself), and inside it at least one of the two events must occur, hence the disjunction. $\LS$ stands for the legitimate login.
+\end{enumerate}
+
+\bigskip
+\noindent\textbf{Part C: STL specifications.}
+The atomic predicates are inequalities on the signals, and $\AL$ corresponds to $\LK(t)\ge 1$:
+\begin{align*}
+    &\mu_1 := (\AS(t) < 0.8), \quad \mu_2 := (\AS(t) > 0.8), \quad \mu_3 := (\FR(t) > 5),\\
+    &\mu_4 := (\LK(t) \ge 1), \quad \mu_5 := (\LK(t) < 1), \\
+    &\mu_6 := (\LC(t) > 0.9),\\
+    &\mu_7 := (\AS(t) < 0.3), \quad \mu_8 := (\LC(t) < 0.5).
+\end{align*}
+\begin{enumerate}[\textbf{C\arabic*.}]
+    \item $\G\,\mu_1 \;=\; \G\big(\AS(t) < A_{\text{crit}}\big)$. \\
+    The anomaly score is below the critical value at all times; during normal operation it never reaches $0.8$.
+
+    \item $\G\big(\mu_2 \to \F_{[0,10]}\,\mu_4\big)$. \\
+    Whenever the anomaly score exceeds $0.8$, the lock status must reach $1$ within $10$ seconds. In plain terms, a high anomaly score must trigger a lock quickly.
+
+    \item $\G\big(\mu_3 \to \F_{[0,5]}\,\mu_4\big)$. \\
+    If more than $5$ failed attempts are being observed, the account must be locked within $5$ seconds.
+
+    \item $\G\big((\mu_4\wedge\mu_6\wedge\mu_7) \to \F_{[0,120]}\,\mu_5\big)$. \\
+    When the account is locked, the user is very likely legitimate ($\LC>0.9$) and the anomaly score is low ($<0.3$), it must be unlocked within $2$ minutes. This is the recovery rule for genuine users who got locked out.
+
+    \item $\G\big((\mu_2\wedge\mu_8) \to \mu_4\big)$. \\
+    At every instant where the anomaly score is high and confidence in the user is low, the account is locked, so it cannot be unlocked while that risky combination lasts.
+
+    \item $\G\big(\G_{[0,5]}\,\mu_2 \;\to\; \F_{[5,10]}\,\mu_4\big)$. \\
+    If the score stays above $0.8$ for a full $5$ seconds starting at $t$, then the lock must appear in the next $5$ seconds, i.e.\ in $[t+5,\,t+10]$. A short spike does not trigger the requirement; only persistent suspicious behaviour does.
+\end{enumerate}
+
+\bigskip
+\Needspace{8\baselineskip}
+\noindent\textbf{Part D: Conceptual questions.}
+\begin{enumerate}[\textbf{D\arabic*.}]
+    \item LTL only talks about the order of events: $\F\AL$ is satisfied even if the lock arrives ten hours after the suspicious activity, because ``eventually'' has no deadline. The requirement here is a hard $10$-second deadline, so we need real time. MTL puts an interval on the temporal operators, so $\F_{[0,10]}\AL$ says exactly this.
+
+    \item Signals such as $\AS(t)$, $\FR(t)$ and $\LC(t)$ take values in the real numbers, and requirements on them are about thresholds (``above $0.8$''). STL builds this in through predicates $f(x(t))>c$ over the continuous signals, together with timed operators. It also gives a robustness value that measures \emph{how much} a signal satisfies or violates a requirement (for example, how far the anomaly score stays below $0.8$), which tells us more than a plain yes/no. With LTL or MTL we would first have to turn each signal into Booleans and lose that margin.
+
+    \item
+    \begin{itemize}
+        \item $\G\big(\SA \to \F\,\AL\big)$ is \textbf{LTL}. The account gets locked at some point after suspicious activity, with no time limit.
+        \item $\G\big(\SA \to \F_{[0,10]}\AL\big)$ is \textbf{MTL}. The requirement is still Boolean, but now the lock must come within $10$ seconds.
+        \item $\G\big((\AS(t)>0.8) \to \F_{[0,10]}(\LK(t)=1)\big)$ is \textbf{STL}. The atoms are no longer Boolean labels but conditions on real-valued signals (a threshold on the anomaly score and a value of the lock status), and the timing bound stays.
+    \end{itemize}
+    Going from LTL to MTL adds \emph{quantitative time} (bounded intervals, deadlines and durations). Going from MTL to STL adds \emph{real-valued signals} through predicates, and with them robustness semantics that say how well a requirement is satisfied.
+\end{enumerate}
+
+\bigskip
+\Needspace{8\baselineskip}
+\noindent\textbf{Part E: Example traces.}
+
+\medskip
+\noindent\textbf{E1. A trace satisfying all of A1--A6.}
+Each column is one step; a proposition not listed is false. The last state repeats forever.
+\begin{center}
+\begin{tabular}{c|l}
+\hline
+Step & True propositions \\
+\hline
+0 & $\AU,\ \LS$ \\
+1 & $\AU,\ \LF$ \\
+2 & $\AL,\ \LF,\ \SA$ \\
+3 & $\AL,\ \UN,\ \PR$ \\
+4 & $\AL,\ \AV$ \\
+5 & $\AU$ \\
+$6,7,\dots$ & $\AU,\ \LS$ (repeated forever) \\
+\hline
+\end{tabular}
+\end{center}
+Checking each requirement:
+\begin{itemize}
+    \item A1: the account is locked in steps 2--4, and none of these has $\LS$.
+    \item A2: the lock starts at step 2 and lasts until $\AV$ holds at step 4; it is released only afterwards (step 5).
+    \item A3: $\AV\wedge\AL$ holds at step 4, and the account is unlocked at step 5.
+    \item A4: the reset request at step 3 is followed by $\AV$ at step 4.
+    \item A5: no step contains both $\LS$ and $\LF$.
+    \item A6: the lock starts at step 2 and the user is notified at step 3.
+\end{itemize}
+
+\medskip
+\Needspace{8\baselineskip}
+\noindent\textbf{E2. A trace violating at least two of the LTL specifications.}
+\begin{center}
+\begin{tabular}{c|l}
+\hline
+Step & True propositions \\
+\hline
+0 & $\AU$ \\
+1 & $\AL,\ \SA$ \\
+2 & $\AL,\ \LS,\ \LF$ \\
+$3,4,\dots$ & $\AU$ (repeated forever) \\
+\hline
+\end{tabular}
+\end{center}
+This trace violates four of the specifications:
+\begin{itemize}
+    \item \textbf{A1}: at step 2 the account is locked and $\LS$ is true.
+    \item \textbf{A5}: at step 2 both $\LS$ and $\LF$ hold together.
+    \item \textbf{A2}: the account becomes locked at step 1, but at step 3 it is unlocked even though $\AV$ never occurred.
+    \item \textbf{A6}: the account is locked at step 1 but $\UN$ never becomes true.
+\end{itemize}
+(A3 and A4 hold trivially because $\AV$ and $\PR$ never occur.)
+
+\medskip
+\Needspace{8\baselineskip}
+\noindent\textbf{E3. A timed trace satisfying all of B1--B6.}
+\begin{center}
+\begin{tabular}{r|l}
+\hline
+Time (s) & Event \\
+\hline
+0 & $\LS$ (account unlocked) \\
+5 & $\LF$ \\
+8 & $\LS$ \\
+20 & $\LF$ \\
+24 & $\SA$ becomes true \\
+28 & $\AL$ becomes true \\
+40 & $\UN$ \\
+50 & $\PR$ \\
+100 & $\AV$ \\
+130 & $\AU$ (account unlocked) \\
+140 & $\LS$ \\
+\hline
+\end{tabular}
+\end{center}
+\begin{itemize}
+    \item B1: suspicious activity starts at $24$ s and the lock follows at $28$ s, i.e.\ after $4\le 10$ s.
+    \item B2: the lock starts at $28$ s and the notification comes at $40$ s, which is $12\le 30$ s later.
+    \item B3: the reset request at $50$ s is answered by verification at $100$ s, well within $600$ s.
+    \item B4: the account is locked from $28$ s to $130$ s. The first $60$ s of the lock run until $88$ s, and the account stays locked throughout that window ($\AV$ only arrives at $100$ s).
+    \item B5: verification at $100$ s is followed by unlocking at $130$ s, i.e.\ after $30\le 120$ s.
+    \item B6: the failure at $5$ s is followed by a successful login at $8$ s, and the failure at $20$ s is followed by the lock at $28$ s (both within $20$ s).
+\end{itemize}
+
+\medskip
+\Needspace{8\baselineskip}
+\noindent\textbf{E4. A timed trace that violates the ``locked within 10 seconds'' requirement.}
+\begin{center}
+\begin{tabular}{r|l}
+\hline
+Time (s) & Event \\
+\hline
+0 & $\AU$ \\
+12 & $\SA$ becomes true \\
+25 & $\AL$ becomes true \\
+\hline
+\end{tabular}
+\end{center}
+\begin{itemize}
+    \item Suspicious activity is detected at $t=12$ s.
+    \item The account does become locked, but only at $t=25$ s, which is $13$ s later.
+    \item The violated specification is B1, $\On{\SA}{\F_{[0,10]}\AL}$: the window $[12,22]$ contains no instant at which the account is locked, so the deadline is missed by $3$ seconds.
+\end{itemize}
+\end{solution}
+\problemend
+
+\end{document}
